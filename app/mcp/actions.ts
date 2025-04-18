@@ -354,8 +354,13 @@ export async function executeMcpAction(
 // 获取 MCP 配置文件
 export async function getMcpConfigFromFile(): Promise<McpConfigData> {
   try {
-    const configStr = await fs.readFile(CONFIG_PATH, "utf-8");
-    return JSON.parse(configStr);
+    if (await isMcpConfigUsingEnv()) {
+      const serverConfig = getServerSideConfig();
+      return JSON.parse(serverConfig.mcpConfig);
+    } else {
+      const configStr = await fs.readFile(CONFIG_PATH, "utf-8");
+      return JSON.parse(configStr);
+    }
   } catch (error) {
     logger.error(`Failed to load MCP config, using default config: ${error}`);
     return DEFAULT_MCP_CONFIG;
@@ -366,8 +371,10 @@ export async function getMcpConfigFromFile(): Promise<McpConfigData> {
 async function updateMcpConfig(config: McpConfigData): Promise<void> {
   try {
     // 确保目录存在
-    await fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
-    await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2));
+    if (!await isMcpConfigUsingEnv()) {
+      await fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
+      await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2));
+    }
   } catch (error) {
     throw error;
   }
@@ -380,6 +387,17 @@ export async function isMcpEnabled() {
     return serverConfig.enableMcp;
   } catch (error) {
     logger.error(`Failed to check MCP status: ${error}`);
+    return false;
+  }
+}
+
+// 检查 MCP Config 是否使用环境变量
+async function isMcpConfigUsingEnv(): Promise<boolean> {
+  try {
+    const serverConfig = getServerSideConfig();
+    return serverConfig.mcpConfig !== "";
+  } catch (error) {
+    logger.error(`Failed to check MCP config env status: ${error}`);
     return false;
   }
 }

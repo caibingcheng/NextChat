@@ -92,6 +92,8 @@ declare global {
       DEFAULT_INPUT_TEMPLATE?: string;
 
       ENABLE_MCP?: string; // enable mcp functionality
+
+      MCP_CONFIG?: string;  // mcp config
     }
   }
 }
@@ -174,6 +176,8 @@ export const getServerSideConfig = () => {
   const allowedWebDavEndpoints = (
     process.env.WHITE_WEBDAV_ENDPOINTS ?? ""
   ).split(",");
+
+  const mcpConfig = process.env.MCP_CONFIG ?? "";
 
   return {
     baseUrl: process.env.BASE_URL,
@@ -265,5 +269,6 @@ export const getServerSideConfig = () => {
     visionModels,
     allowedWebDavEndpoints,
     enableMcp: process.env.ENABLE_MCP === "true",
+    mcpConfig,
   };
 };
