@@ -1,0 +1,84 @@
+name: Sync main to self-host
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Create or update pull request from main to self-host
+        id: pr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: self-host
+          head: main
+          title: 'Sync main to self-host'
+          body: 'Automated PR to sync main branch to self-host branch.'
+          draft: false
+          commit-message: 'Sync main to self-host'
+          # This action will create or update the PR automatically
+
+      - name: Check if PR is mergeable
+        id: check_mergeable
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = parseInt('${{ steps.pr.outputs.pull-request-number }}');
+            if (!prNumber) {
+              core.setOutput('mergeable', 'false');
+              core.setOutput('pr_number', '');
+              return;
+            }
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            // mergeable can be true, false, or null (unknown)
+            core.setOutput('mergeable', pr.mergeable === true ? 'true' : 'false');
+            core.setOutput('pr_number', prNumber.toString());
+
+      - name: Auto merge PR if mergeable
+        if: steps.check_mergeable.outputs.mergeable == 'true' && steps.check_mergeable.outputs.pr_number != ''
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = parseInt('${{ steps.check_mergeable.outputs.pr_number }}');
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              merge_method: 'merge'
+            });
+            console.log(`PR #${prNumber} merged successfully.`);
+
+      - name: Notify conflict via email if not mergeable
+        # if: steps.check_mergeable.outputs.mergeable == 'false' && steps.check_mergeable.outputs.pr_number != ''
+        if: false
+        uses: dawidd6/action-send-mail@v3
+        with:
+          # 这里需要你配置一个 SMTP 邮箱账号的 secret，假设叫 SMTP_USERNAME 和 SMTP_PASSWORD
+          server_address: smtp.example.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: 'Pull Request Conflict Notification'
+          to: jack_cbc@163.com
+          from: 'github-actions@example.com'
+          body: |
+            The pull request #${{ steps.check_mergeable.outputs.pr_number }} from main to self-host branch has conflicts and cannot be merged automatically.
+            Please resolve the conflicts manually.
