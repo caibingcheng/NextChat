@@ -22,8 +22,7 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: self-host
-          head: main
+          branch: self-host
           title: 'Sync main to self-host'
           body: 'Automated PR to sync main branch to self-host branch.'
           draft: false
